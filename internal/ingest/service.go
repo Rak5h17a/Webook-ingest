@@ -30,8 +30,22 @@ func New(s *store.Store, c *stats.Cache, rdb *redis.Client, log *slog.Logger) *S
 }
 
 // Stats returns the cached totals for an account.
-func (s *Service) Stats(accountID string) stats.AccountStats {
-	return s.cache.Get(accountID)
+func (s *Service) Stats(ctx context.Context, accountID string) (stats.AccountStats, error) {
+	if st, ok := s.cache.Get(accountID); ok {
+		return st, nil
+	}
+
+	dbStats, err := s.store.AccountStats(ctx, accountID)
+	if err != nil {
+		return stats.AccountStats{}, err
+	}
+
+	warm := stats.AccountStats{
+		CallCount:        dbStats.CallCount,
+		TotalDurationSec: dbStats.TotalDurationSec,
+	}
+	s.cache.Set(accountID, warm)
+	return warm, nil
 }
 
 // Ingest stores a delivery and kicks off processing. Processing runs

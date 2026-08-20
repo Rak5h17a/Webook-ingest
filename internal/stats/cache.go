@@ -24,19 +24,29 @@ func NewCache() *Cache {
 }
 
 // Get returns a snapshot of an account's totals. Unknown accounts read as zero.
-func (c *Cache) Get(accountID string) AccountStats {
+func (c *Cache) Get(accountID string) (AccountStats, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	s, ok := c.m[accountID]
 	if !ok {
-		return AccountStats{}
+		return AccountStats{}, false
 	}
-	return *s
+	return *s, true
+}
+
+// Set overwrites an account's cached totals.
+func (c *Cache) Set(accountID string, st AccountStats) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.m[accountID] = &st
 }
 
 // Record folds one completed call into an account's running totals.
 func (c *Cache) Record(accountID string, durationSec int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	s, ok := c.m[accountID]
 	if !ok {
 		s = &AccountStats{}

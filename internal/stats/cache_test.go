@@ -13,20 +13,24 @@ func TestCacheRecordAccumulates(t *testing.T) {
 	c.Record("acc_1", 12)
 	c.Record("acc_2", 5)
 
-	got := c.Get("acc_1")
-	if got.CallCount != 2 || got.TotalDurationSec != 42 {
-		t.Fatalf("acc_1: got %+v, want CallCount=2 TotalDurationSec=42", got)
+	got, ok := c.Get("acc_1")
+	if !ok || got.CallCount != 2 || got.TotalDurationSec != 42 {
+		t.Fatalf("acc_1: got %+v ok=%v, want CallCount=2 TotalDurationSec=42 ok=true", got, ok)
 	}
 
-	other := c.Get("acc_2")
-	if other.CallCount != 1 || other.TotalDurationSec != 5 {
-		t.Fatalf("acc_2: got %+v, want CallCount=1 TotalDurationSec=5", other)
+	other, ok := c.Get("acc_2")
+	if !ok || other.CallCount != 1 || other.TotalDurationSec != 5 {
+		t.Fatalf("acc_2: got %+v ok=%v, want CallCount=1 TotalDurationSec=5 ok=true", other, ok)
 	}
 }
 
 func TestCacheGetUnknownAccountIsZero(t *testing.T) {
 	c := stats.NewCache()
-	if got := c.Get("nobody"); got.CallCount != 0 || got.TotalDurationSec != 0 {
+	got, ok := c.Get("nobody")
+	if ok {
+		t.Fatalf("got ok=true for unknown account, want false")
+	}
+	if got.CallCount != 0 || got.TotalDurationSec != 0 {
 		t.Fatalf("got %+v, want zero value", got)
 	}
 }

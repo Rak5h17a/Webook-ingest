@@ -43,17 +43,18 @@ func TestWebhookStoresEventAndCall(t *testing.T) {
 		t.Fatalf("got %d, want 200", resp.StatusCode)
 	}
 
-	exists, err := st.EventExists(ctx, eventID)
-	if err != nil {
-		t.Fatalf("EventExists: %v", err)
+	var n int
+	row := st.Pool().QueryRow(ctx, `SELECT count(*) FROM events WHERE event_id = $1`, eventID)
+	if err := row.Scan(&n); err != nil {
+		t.Fatalf("scan: %v", err)
 	}
-	if !exists {
-		t.Fatal("expected the event to be stored")
+	if n != 1 {
+		t.Fatalf("expected the event to be stored, got count=%d", n)
 	}
 
 	var gotAccount string
-	row := st.Pool().QueryRow(ctx, `SELECT account_id FROM calls WHERE call_id = $1`, callID)
-	if err := row.Scan(&gotAccount); err != nil {
+	callRow := st.Pool().QueryRow(ctx, `SELECT account_id FROM calls WHERE call_id = $1`, callID)
+	if err := callRow.Scan(&gotAccount); err != nil {
 		t.Fatalf("expected a call record for %s: %v", callID, err)
 	}
 	if gotAccount != accountID {
