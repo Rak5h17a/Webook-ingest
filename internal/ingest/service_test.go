@@ -83,3 +83,32 @@ func TestDuplicateDeliveryIsIgnored(t *testing.T) {
 		t.Fatalf("stored %d copies of %s, want 1", n, eventID)
 	}
 }
+
+func TestDuplicateDeliveryDoesNotInflateAccountStats(t *testing.T) {
+	srv, st := testutil.NewServer(t)
+	eventID, callID, accountID := testutil.IDs(t, st)
+	ctx := context.Background()
+
+	body := eventJSON(eventID, callID, accountID)
+
+	// Simulate the provider redelivering the same event twice.
+	if resp := post(t, srv.URL+"/webhooks/calls", body); resp.StatusCode != http.StatusOK {
+		t.Fatalf("first delivery: got %d, want 200", resp.StatusCode)
+	}
+	if resp := post(t, srv.URL+"/webhooks/calls", body); resp.StatusCode != http.StatusOK {
+		t.Fatalf("second delivery: got %d, want 200", resp.StatusCode)
+	}
+
+	var callCount, totalDuration int64
+	row := st.Pool().QueryRow(ctx,
+		`SELECT call_count, total_duration_sec FROM account_stats WHERE account_id = $1`, accountID)
+	if err := row.Scan(&callCount, &totalDuration); err != nil {
+		t.Fatalf("scan account_stats: %v", err)
+	}
+	if callCount != 1 {
+		t.Fatalf("call_count = %d, want 1 (duplicate delivery must not double-count)", callCount)
+	}
+	if totalDuration != 143 {
+		t.Fatalf("total_duration_sec = %d, want 143 (matches eventJSON's duration_sec)", totalDuration)
+	}
+}
